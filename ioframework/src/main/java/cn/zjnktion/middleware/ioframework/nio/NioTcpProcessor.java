@@ -6,6 +6,7 @@ import cn.zjnktion.middleware.ioframework.RuntimeIOException;
 import cn.zjnktion.middleware.ioframework.Session;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.Iterator;
 import java.util.Queue;
@@ -120,7 +121,40 @@ public class NioTcpProcessor implements Processor {
     }
 
     private void read(Session session) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(8 * 1024);
+        try {
+            int readBytes = 0;
+            int ret = 0;
+            try {
+                while ((ret = read(session, byteBuffer)) > 0) {
+                    readBytes += ret;
+                    if (!byteBuffer.hasRemaining()) {
+                        break;
+                    }
+                }
+            }
+            finally {
+                byteBuffer.flip();
+            }
 
+            if (readBytes > 0) {
+                session.getHandler().sessionRead(session, byteBuffer);
+            }
+
+            if (ret < 0) {
+                // todo input close
+            }
+        }
+        catch (Exception e) {
+            // todo different exception type different deal
+
+            // session.getHandler().exceptionCaught(session, e);
+        }
+    }
+
+    private int read(Session session, ByteBuffer byteBuffer) throws Exception {
+        SocketChannel channel = (SocketChannel) session.getChannel();
+        return channel.read(byteBuffer);
     }
 
     private void addSessions() {
